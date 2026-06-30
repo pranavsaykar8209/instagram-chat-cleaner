@@ -18,9 +18,10 @@ export async function launchBrowser() {
     console.log('[Browser] No existing session file found. A new session will be created.');
   }
 
+  // Set to a smaller viewport (1024x768) so it doesn't get cut off on smaller laptop screens
   const context = await browser.newContext({
     storageState,
-    viewport: { width: 1440, height: 900 }
+    viewport: { width: 1024, height: 768 }
   });
   
   const page = await context.newPage();

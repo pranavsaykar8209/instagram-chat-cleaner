@@ -1,6 +1,7 @@
 import { launchBrowser } from './browser/launch.js';
 import { INSTAGRAM_URL } from './config/constants.js';
 import { authenticateUser } from './auth/login.js';
+import { runCleaner } from './chat/cleaner.js';
 
 async function main() {
   console.log('Starting Instagram Chat Cleaner...');
@@ -16,17 +17,17 @@ async function main() {
     const pageTitle = await page.title();
     console.log(`[Navigation] Page fully loaded. Title: "${pageTitle}"`);
     
+    // Step 3: Auth flow
     await authenticateUser(page, context);
     
-    console.log('\n========================================');
-    console.log('Step 3 Complete: Authentication & Session Persistence.');
-    console.log('You can now verify the authenticated state in the browser.');
-    console.log('Close the browser manually or stop the script to exit.');
-    console.log('========================================\n');
+    // Step 5: Run the message cleaner
+    await runCleaner(page);
+    
+    // Keep the browser open after inspection so the user can verify
     
   } catch (error) {
     // If navigation fails, throw the error instead of silently handling it
-    console.error('An error occurred during Step 3:');
+    console.error('An error occurred:');
     throw error;
   }
 }
