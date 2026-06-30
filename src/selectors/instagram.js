@@ -1,7 +1,11 @@
 export const SELECTORS = {
-  // The 'Home' icon is present in the side navigation when a user is successfully logged in.
+  // Indicator that the user is logged in
   HOME_INDICATOR: 'svg[aria-label="Home"]',
   
-  // The username input is present on the login page when the user is logged out.
+  // Indicator that the user is logged out and on the login page
   LOGIN_USERNAME_INPUT: 'input[name="username"]',
+  
+  // Cookie consent buttons
+  COOKIE_ALLOW_BUTTON: 'button:has-text("Allow all cookies")',
+  COOKIE_DECLINE_BUTTON: 'button:has-text("Decline optional cookies")',
 };
