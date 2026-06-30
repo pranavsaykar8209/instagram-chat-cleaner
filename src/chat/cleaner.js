@@ -157,6 +157,19 @@ export async function runCleaner(page) {
         return; // Exits the runCleaner function entirely
       }
       
+      // ANTI-BOT MEASURES: Delete in rapid batches of 10, then add a random "jitter" delay
+      if (unsentCount % 10 === 0) {
+        const randomJitterMs = Math.floor(Math.random() * (4000 - 2000 + 1)) + 2000;
+        console.log(`[Cleaner] 🛡️ Anti-bot protection: Pausing for ${randomJitterMs}ms after a batch of 10...`);
+        await page.waitForTimeout(randomJitterMs);
+      }
+
+      // ANTI-BOT MEASURES: Take a long "human break" every 50 messages
+      if (unsentCount % 50 === 0) {
+        console.log(`[Cleaner] 🛡️ Anti-bot protection: Taking a 5-second break to simulate human behavior...`);
+        await page.waitForTimeout(5000);
+      }
+
       // We break out of the inner loop to quickly rescan the DOM since elements have shifted
       break; 
     }
