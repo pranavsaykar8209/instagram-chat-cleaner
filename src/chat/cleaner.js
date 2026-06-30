@@ -68,23 +68,56 @@ export async function runCleaner(page) {
         continue;
       }
 
-      // Interact to reveal options
-      await contentBubble.click({ force: true }).catch(() => {});
-      await contentBubble.hover({ force: true }).catch(() => {});
-      await page.waitForTimeout(250);
-
-      const optionsBtn = page.getByRole('button', { name: SELECTORS.MESSAGE_OPTIONS_BUTTON.replace(/\[aria-label="|"]/g, '') }).first();
-      if (!(await optionsBtn.isVisible().catch(() => false))) {
-        // Fallback to CSS selector if getByRole fails
-        const cssOptionsBtn = page.locator(SELECTORS.MESSAGE_OPTIONS_BUTTON).first();
-        if (await cssOptionsBtn.isVisible().catch(() => false)) {
-            await cssOptionsBtn.click();
-        } else {
-            continue; // Could not trigger options
+      // To trigger the options button, we need to interact with the actual message content.
+      // We look for text blocks (div[dir="auto"]), media (img, video, audio), or interactive elements (button)
+      const contentBubbles = await group.locator('div[dir="auto"], img, video, audio, button').all();
+      
+      let optionsBtnVisible = false;
+      let optionsBtn = page.getByRole('button', { name: SELECTORS.MESSAGE_OPTIONS_BUTTON.replace(/\[aria-label="|"]/g, '') }).first();
+      
+      for (const bubble of contentBubbles) {
+        if (!(await bubble.isVisible().catch(() => false))) {
+          continue;
         }
-      } else {
-          await optionsBtn.click();
+        
+        // 1. Try Hover (safest for Reels, doesn't open them)
+        await bubble.hover({ force: true }).catch(() => {});
+        await page.waitForTimeout(250);
+
+        if (!(await optionsBtn.isVisible().catch(() => false))) {
+          optionsBtn = page.locator(SELECTORS.MESSAGE_OPTIONS_BUTTON).first();
+        }
+
+        if (await optionsBtn.isVisible().catch(() => false)) {
+          optionsBtnVisible = true;
+          break; // Hover worked!
+        }
+
+        // 2. Try Click (some text messages need a click to register focus)
+        await bubble.click({ force: true }).catch(() => {});
+        await page.waitForTimeout(250);
+
+        // 3. Handle accidental Modal opens (e.g., clicking a Reel opens it fullscreen)
+        const closeBtn = page.getByRole('button', { name: 'Close' }).first();
+        if (await closeBtn.isVisible().catch(() => false)) {
+          await closeBtn.click().catch(() => {});
+          await page.waitForTimeout(250);
+          // Re-hover after closing
+          await bubble.hover({ force: true }).catch(() => {});
+          await page.waitForTimeout(250);
+        }
+
+        if (await optionsBtn.isVisible().catch(() => false)) {
+          optionsBtnVisible = true;
+          break;
+        }
       }
+
+      if (!optionsBtnVisible) {
+        continue; // Could not trigger options
+      }
+      
+      await optionsBtn.click();
       
       await page.waitForTimeout(700);
 
@@ -106,14 +139,17 @@ export async function runCleaner(page) {
       if (await dialog.isVisible().catch(() => false)) {
         const confirmBtn = dialog.getByRole('button', { name: SELECTORS.UNSEND_CONFIRM_DIALOG_BUTTON }).first();
         await confirmBtn.click().catch(() => {});
+        // Wait for dialog to disappear instead of using a static sleep
+        await dialog.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
       } else {
         // Fallback if dialog role is missing: just click the second "Unsend" button on screen
         const fallbackConfirm = page.getByRole('button', { name: SELECTORS.UNSEND_CONFIRM_DIALOG_BUTTON }).nth(1);
         await fallbackConfirm.click().catch(() => {});
+        await page.waitForTimeout(500); // Small fallback wait for DOM to update
       }
 
       unsentCount++;
-      console.log(`[Cleaner] Unsent message #${unsentCount}. Waiting ${DELAY_BETWEEN_MESSAGES_MS}ms...`);
+      console.log(`[Cleaner] Successfully unsent message #${unsentCount}.`);
       processedAny = true;
       
       if (typeof MAX_MESSAGES_TO_UNSEND === 'number' && unsentCount >= MAX_MESSAGES_TO_UNSEND) {
@@ -121,10 +157,7 @@ export async function runCleaner(page) {
         return; // Exits the runCleaner function entirely
       }
       
-      // Wait to avoid rate limits
-      await page.waitForTimeout(DELAY_BETWEEN_MESSAGES_MS);
-      
-      // Break out of the inner loop to rescan the DOM because elements have shifted after deletion
+      // We break out of the inner loop to quickly rescan the DOM since elements have shifted
       break; 
     }
 
